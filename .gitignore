@@ -1,0 +1,19 @@
+# OS / editor
+.DS_Store
+._*
+*.bak
+*~
+.claude/
+.vscode/
+.idea/
+
+# ESP-IDF build artifacts
+esp-idf/build*/
+esp-idf/managed_components/
+esp-idf/dependencies.lock
+esp-idf/sdkconfig
+esp-idf/sdkconfig.old
+
+# spangap CLI staging (regenerated at build time)
+esp-idf/staging/
+staging/

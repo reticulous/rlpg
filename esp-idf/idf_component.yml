@@ -1,0 +1,9 @@
+description: "rlpg: personal LXMF mailbox node (RLPG) — certified store-and-forward for one owner address."
+url: https://github.com/reticulous/rlpg
+version: "0.1.0"
+license: "Apache-2.0"
+targets:
+  - esp32s3
+dependencies:
+  idf:
+    version: ">=5.5"
