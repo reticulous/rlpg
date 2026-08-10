@@ -66,6 +66,8 @@
 #include <map>
 #include <set>
 
+
+
 static const char* TAG = "rlpg";
 
 #define RLPG_MAX_MAILBOXES          2
@@ -1859,7 +1861,7 @@ static void cliRlpg(const char* args)
         cliPrintf("rlpg cert                 decode the current certificate\n");
         cliPrintf("rlpg held                 list held envelopes\n");
         cliPrintf("rlpg drop <tid|all>       delete held envelope(s)\n");
-        cliPrintf("rlpg announce             force a mailbox announce\n");
+        cliPrintf("rlpg a[nnounce]           force a mailbox announce\n");
         return;
     }
     /* Bare `rlpg` → status of the selected slot. */
@@ -1984,7 +1986,7 @@ static void cliRlpg(const char* args)
         }
         return;
     }
-    if (verb == "announce") {
+    if (cliVerbIs(verb.c_str(), "announce", 1)) {
         storageSet("rlpg.cmd.announce", cliSelected());
         cliPrintf("announce requested\n");
         return;

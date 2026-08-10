@@ -23,7 +23,7 @@ rlpg status                cert state, held count, quota use
 rlpg cert                  decode the installed certificate
 rlpg held                  list held envelopes
 rlpg drop <tid|all>        delete held envelope(s)
-rlpg announce              force a mailbox announce
+rlpg a[nnounce]            force a mailbox announce
 rlpg destroy <n>           wipe a slot (secrets, settings, held mail)
 ```
 
