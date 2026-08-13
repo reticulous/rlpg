@@ -808,8 +808,11 @@ static void handleAuth(session_t& ss, const RlpgFrame& fr)
     }
     ss.authed = true;
     info("slot %d: owner session on %s", ss.slot, ss.tag.c_str());
-    /* Remember the owner's pubkey so lxmf sends never wait on an announce. */
-    rnsdRememberPubkey(s.serves, fr.pubkey);
+    /* Seed the owner's key so lxmf sends never wait on an announce. This is the
+     * one key that does not arrive from the network: it came in on a signed
+     * authentication frame, and nothing would re-derive it before the owner's
+     * next session. */
+    rnsdSeedPubkey(s.serves, fr.pubkey);
     streamHeld(ss);
     /* Deliver any relay outcomes that accrued while the owner was away. */
     relayFlushOwnerStatus(ss);
@@ -1400,11 +1403,15 @@ static void onResourceAux(TaskHandle_t, const void* data, size_t len)
 
 /* ─────────────── announce subscriptions ─────────────── */
 
+/* RNSD_PORT_ANNOUNCES frame:
+ *   hops(1) | dest_hash(16) | identity_hash(16) | pubkey(64) | app_data(N) */
+constexpr size_t RLPG_ANNOUNCE_HDR = 1 + 16 + 16 + 64;
+
 static void onRlpgAnnounce(int handle, size_t)
 {
-    PSRAM_BSS static uint8_t buf[1 + 16 + 16 + 512];
+    PSRAM_BSS static uint8_t buf[RLPG_ANNOUNCE_HDR + 512];
     size_t n = itsRecv(handle, buf, sizeof(buf), 0);
-    const size_t HDR = 1 + 16 + 16;
+    const size_t HDR = RLPG_ANNOUNCE_HDR;
     if (n < HDR) return;
     const uint8_t* dh = buf + 1;
     RlpgAnnounce a;
@@ -1467,9 +1474,9 @@ static int announceCaps(const uint8_t* p, size_t n)
 
 static void onLxmfAnnounce(int handle, size_t)
 {
-    PSRAM_BSS static uint8_t buf[1 + 16 + 16 + 512];
+    PSRAM_BSS static uint8_t buf[RLPG_ANNOUNCE_HDR + 512];
     size_t n = itsRecv(handle, buf, sizeof(buf), 0);
-    const size_t HDR = 1 + 16 + 16;
+    const size_t HDR = RLPG_ANNOUNCE_HDR;
     if (n < HDR) return;
     /* Cache the destination's advertised capabilities — relayStart's
      * direct final hop keys off caps bit0. */
