@@ -22,15 +22,17 @@ services:
 # node + service identities when they are set and no identity exists yet.
 settings:
   - at:
-      - { id: mesh, label: "Mesh Network", order: 3 }
+      - { id: reticulum }
       - { id: rlpg, label: "RLPG mailbox" }
     rows:
       - section: "RLPG mailbox (server)"
       - switch: { label: "Enable", key: "s.rlpg.id.0.enabled", default: 0 }
       - text:   { label: "Serves (LXMF address)", key: "s.rlpg.id.0.serves", default: "" }
-      - value:  { label: "Mailbox address", key: "rlpg.id.0.dest_hash" }
-      - value:  { label: "Certificate", key: "rlpg.id.0.cert_state" }
-      - value:  { label: "Held envelopes", key: "rlpg.id.0.held" }
+      - info:
+          rows:
+            - value:  { label: "Mailbox address", key: "rlpg.id.0.dest_hash" }
+            - value:  { label: "Certificate", key: "rlpg.id.0.cert_state" }
+            - value:  { label: "Held envelopes", key: "rlpg.id.0.held" }
       - slider: { label: "Retention (days)", key: "s.rlpg.id.0.retain_days", min: 1, max: 60, default: 7 }
       - slider: { label: "Quota (KB)", key: "s.rlpg.id.0.quota_kb", min: 64, max: 8192, default: 1024 }
       - slider: { label: "Max envelope (KB)", key: "s.rlpg.id.0.max_envelope_kb", min: 1, max: 256, default: 64 }
