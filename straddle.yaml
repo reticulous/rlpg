@@ -21,8 +21,8 @@ services:
 # and flipping Enable is a full server setup — the task auto-provisions the
 # node + service identities when they are set and no identity exists yet.
 settings:
-  - menu:
-      - { id: mesh, label: "Mesh Network", placement: 3 }
+  - at:
+      - { id: mesh, label: "Mesh Network", order: 3 }
       - { id: rlpg, label: "RLPG mailbox" }
     rows:
       - section: "RLPG mailbox (server)"
