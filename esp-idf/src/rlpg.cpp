@@ -1646,6 +1646,37 @@ static void reconcileSlots()
 static bool s_cfg_dirty = false;
 static void onSettingsChanged(const char*, const char*) { s_cfg_dirty = true; }
 
+/* Maintenance beat. Everything the work loop sweeps is minute or half-hour
+ * scale — the announce interval, the 60 s retention pass, the stuck-relay
+ * reaper — with one exception: a relay in flight settles on a delivery proof
+ * this loop reads out of storage, and only that wants a fine beat. So the
+ * cadence follows the work rather than standing at a fixed rate:
+ *
+ *   relay in flight  → RLPG_BEAT_RELAY_MS, to settle the proof promptly
+ *   mailbox enabled  → RLPG_BEAT_IDLE_MS,  fine enough for everything else
+ *   neither          → park on the inbox outright
+ *
+ * The park is the point: a build that carries rlpg but never turns a mailbox on
+ * must cost the chip nothing at all. It is safe because every input that
+ * creates work arrives as an ITS message on this task — inbound mail, an rnsd
+ * event, an `s.rlpg.id.*` change (storage subscriptions fire on the subscribing
+ * task's own stack) — so an Enable un-parks us on the pass that delivers it. */
+#define RLPG_BEAT_RELAY_MS   5000
+#define RLPG_BEAT_IDLE_MS   30000
+
+static TickType_t rlpgBeat(void)
+{
+    for (auto& r : s_relays) if (r.used) return pdMS_TO_TICKS(RLPG_BEAT_RELAY_MS);
+    /* A dropped announce subscription is retried from the sweep, so the beat has
+     * to keep running until it takes — the drop itself arrives as an event, but
+     * the retry that answers it does not. */
+    if (s_ann_rlpg_handle < 0 || s_ann_lxmf_handle < 0)
+        return pdMS_TO_TICKS(RLPG_BEAT_IDLE_MS);
+    for (auto& s : s_slots)
+        if (s.used && slotEnabled(s.index)) return pdMS_TO_TICKS(RLPG_BEAT_IDLE_MS);
+    return portMAX_DELAY;
+}
+
 /* rlpg.cmd.* sentinels (CLI runs on the cli task; slot state lives here). */
 static void onCmd(const char* key, const char* val)
 {
@@ -1739,17 +1770,22 @@ static void rlpgTaskMain(void*)
     TickType_t start_tick = xTaskGetTickCount();
     TickType_t last_retention = 0;
     while (!s_stop) {
-        /* Maintenance cadence: 5 s. The real periodic work is minute/half-hour
-         * scale (announce interval, 60 s retention and stuck-relay reaping), so a
-         * 1 Hz beat only cost light sleep. ITS events still wake us at once — this
-         * gate just bounds how often the sweeps below run. */
-        itsPoll(pdMS_TO_TICKS(5000));
+        /* Settings first, ahead of the beat: a change arrives as an ITS message
+         * on this task, and acting on it here is what lets an Enable or Disable
+         * take effect on the pass that delivered it — including when the beat
+         * below is about to park us outright, or has just stopped parking. */
+        if (s_cfg_dirty) { s_cfg_dirty = false; reconcileSlots(); }
+
+        /* See rlpgBeat(): the cadence follows the work, and is portMAX_DELAY
+         * with nothing enabled. ITS events wake us regardless of it; the gate
+         * below is only about how often the sweeps run. */
+        TickType_t beat = rlpgBeat();
+        itsPoll(beat);
+        if (beat == portMAX_DELAY) continue;
         TickType_t now = xTaskGetTickCount();
-        if (now - last_tick < pdMS_TO_TICKS(5000)) continue;
+        if ((int32_t)(now - last_tick) < (int32_t)beat) continue;
         last_tick = now;
         bool doRetention = (int32_t)(now - last_retention) >= (int32_t)pdMS_TO_TICKS(60000);
-
-        if (s_cfg_dirty) { s_cfg_dirty = false; reconcileSlots(); }
 
         uint32_t interval = (uint32_t)storageGetInt("s.rlpg.announce_interval_s", 1800);
         for (auto& s : s_slots) {
