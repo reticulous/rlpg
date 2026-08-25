@@ -26,16 +26,16 @@ settings:
       - { id: rlpg, label: "RLPG mailbox" }
     rows:
       - section: "RLPG mailbox (server)"
-      - switch: { label: "Enable", key: "s.rlpg.id.0.enabled", default: 0 }
+      - switch: { label: "Enable mailbox", key: "s.rlpg.id.0.enabled", default: 0 }
       - text:   { label: "Serves (LXMF address)", key: "s.rlpg.id.0.serves", default: "" }
       - info:
           rows:
             - value:  { label: "Mailbox address", key: "rlpg.id.0.dest_hash" }
             - value:  { label: "Certificate", key: "rlpg.id.0.cert_state" }
             - value:  { label: "Held envelopes", key: "rlpg.id.0.held" }
-      - slider: { label: "Retention (days)", key: "s.rlpg.id.0.retain_days", min: 1, max: 60, default: 7 }
-      - slider: { label: "Quota (KB)", key: "s.rlpg.id.0.quota_kb", min: 64, max: 8192, default: 1024 }
-      - slider: { label: "Max envelope (KB)", key: "s.rlpg.id.0.max_envelope_kb", min: 1, max: 256, default: 64 }
-      - slider: { label: "Deposit stamp cost", key: "s.rlpg.id.0.stamp_cost", min: 0, max: 18, default: 0 }
-      - slider: { label: "Announce (s)", key: "s.rlpg.announce_interval_s", min: 0, max: 21600, default: 1800 }
+      - integer: { label: "Retention", unit: "days", key: "s.rlpg.id.0.retain_days", min: 1, max: 60, default: 7 }
+      - integer: { label: "Quota", unit: "KB", key: "s.rlpg.id.0.quota_kb", min: 64, max: 8192, default: 1024 }
+      - integer: { label: "Max envelope", unit: "KB", key: "s.rlpg.id.0.max_envelope_kb", min: 1, max: 256, default: 64 }
+      - integer: { label: "Deposit stamp cost", key: "s.rlpg.id.0.stamp_cost", min: 0, max: 18, default: 0 }
+      - integer: { label: "Announce", unit: "s", key: "s.rlpg.announce_interval_s", min: 0, max: 21600, default: 1800 }
       - caption: "A mailbox holds LXMF messages for exactly one owner address. It announces reachability-only until the owner's client (its LXMF setting `rlpg_node` pointed at the mailbox address above) connects once and installs a certificate."
