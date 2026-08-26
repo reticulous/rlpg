@@ -37,5 +37,7 @@ settings:
       - integer: { label: "Quota", unit: "KB", key: "s.rlpg.id.0.quota_kb", min: 64, max: 8192, default: 1024 }
       - integer: { label: "Max envelope", unit: "KB", key: "s.rlpg.id.0.max_envelope_kb", min: 1, max: 256, default: 64 }
       - integer: { label: "Deposit stamp cost", key: "s.rlpg.id.0.stamp_cost", min: 0, max: 18, default: 0 }
-      - integer: { label: "Announce", unit: "s", key: "s.rlpg.announce_interval_s", min: 0, max: 21600, default: 1800 }
+      # No announce interval here: a mailbox announces its address once when it
+      # comes up, and how often that goes back on the air belongs to each
+      # interface's own pane.
       - caption: "A mailbox holds LXMF messages for exactly one owner address. It announces reachability-only until the owner's client (its LXMF setting `rlpg_node` pointed at the mailbox address above) connects once and installs a certificate."

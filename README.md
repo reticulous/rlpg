@@ -41,8 +41,11 @@ senders get an expiry notification.
 Per slot (`s.rlpg.id.<n>.`): `serves`, `enabled`, `retain_days` (7),
 `quota_kb` (1024), `max_envelope_kb` (64), `stamp_cost` (0 = no
 proof-of-work required on deposits), `outbound_timeout_s` (259200),
-`service_lxmf_id`, `cert`. Global: `s.rlpg.announce_interval_s` (1800),
-`s.rlpg.pathreq_min_s`/`pathreq_max_s` (60/3600, relay retry backoff).
+`service_lxmf_id`, `cert`. Global:
+`s.rlpg.pathreq_min_s`/`pathreq_max_s` (60/3600, relay retry backoff). A
+mailbox announces once when it comes up; how often that goes back on the air is
+each interface's setting (see [rns/README.md](../rns/README.md), "The announce
+beat").
 
 ## Privacy
 

@@ -260,7 +260,7 @@ struct rlpg_slot_t {
     RlpgCert    cert_p{};
     bool        cert_ok = false;
     uint32_t    quota_used = 0;       /* bytes across held blobs */
-    TickType_t  last_announce_tick = 0;
+    TickType_t  last_announce_tick = 0;   /* 0 = this slot's announce is not stored yet */
 };
 
 static rlpg_slot_t s_slots[RLPG_MAX_MAILBOXES];
@@ -1404,8 +1404,12 @@ static void onResourceAux(TaskHandle_t, const void* data, size_t len)
 /* ─────────────── announce subscriptions ─────────────── */
 
 /* RNSD_PORT_ANNOUNCES frame:
- *   hops(1) | dest_hash(16) | identity_hash(16) | pubkey(64) | app_data(N) */
-constexpr size_t RLPG_ANNOUNCE_HDR = 1 + 16 + 16 + 64;
+ *   hops(1) | dest_hash(16) | identity_hash(16) | pubkey(64) | ratchet(32) |
+ *   app_data(N)
+ * The ratchet is an announce field of its own (all-zero = none advertised),
+ * never part of app_data. A mailbox never encrypts anything itself — it
+ * forwards depositor ciphertext — so nothing here reads it. */
+constexpr size_t RLPG_ANNOUNCE_HDR = 1 + 16 + 16 + 64 + 32;
 
 static void onRlpgAnnounce(int handle, size_t)
 {
@@ -1426,8 +1430,9 @@ static void onRlpgAnnounce(int handle, size_t)
 /* Minimal msgpack walk of lxmf.delivery announce app_data — array header,
  * skip [0] name / [1] stamp_cost, read [2] caps (uint).
  * Only the element types those slots carry (nil/bool/int/str/bin) are
- * handled. Returns the caps value, -1 = absent/unparseable. Announces
- * that carry caps start with the msgpack array (no ratchet prefix). */
+ * handled. Returns the caps value, -1 = absent/unparseable. app_data starts
+ * with the msgpack array — rnsd delivers the ratchet as its own frame field,
+ * so it is never in front of it. */
 static int announceCaps(const uint8_t* p, size_t n)
 {
     size_t i = 0;
@@ -1787,19 +1792,17 @@ static void rlpgTaskMain(void*)
         last_tick = now;
         bool doRetention = (int32_t)(now - last_retention) >= (int32_t)pdMS_TO_TICKS(60000);
 
-        uint32_t interval = (uint32_t)storageGetInt("s.rlpg.announce_interval_s", 1800);
         for (auto& s : s_slots) {
             if (!s.used || !slotEnabled(s.index)) continue;
             if (s.handle < 0) connectSlotDest(s);
-            /* First announce ~30 s after start, then periodic. */
-            if (s.handle >= 0 && interval) {
-                if (s.last_announce_tick == 0) {
-                    if ((int32_t)(now - start_tick) > (int32_t)pdMS_TO_TICKS(30000)) sendAnnounce(s);
-                } else if ((int32_t)(now - s.last_announce_tick) >=
-                           (int32_t)pdMS_TO_TICKS(interval * 1000)) {
-                    sendAnnounce(s);
-                }
-            }
+            /* Once, ~30 s after start — long enough for the transports to be
+             * up. There is no periodic re-announce here: rlpg's job is to keep
+             * its stored announce current with rnsd, and how often those bytes
+             * go on the air belongs to each interface (see rnsd.h, "the
+             * announce beat"). */
+            if (s.handle >= 0 && s.last_announce_tick == 0 &&
+                (int32_t)(now - start_tick) > (int32_t)pdMS_TO_TICKS(30000))
+                sendAnnounce(s);
             if (doRetention) retentionSweep(s.index);
             relaySweep(s.index);
         }
@@ -2041,7 +2044,6 @@ static void cliRlpg(const char* args)
 
 void RlpgService::onInit()
 {
-    storageDefault("s.rlpg.announce_interval_s", 1800);
     storageDefault("s.rlpg.pathreq_min_s", 60);
     storageDefault("s.rlpg.pathreq_max_s", 3600);
     storageDefault("s.rlpg.cli.selected_id", 0);
