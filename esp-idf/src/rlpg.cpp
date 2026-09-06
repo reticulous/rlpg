@@ -79,7 +79,7 @@ static const char* TAG = "rlpg";
                                            * here instead — connect payload is
                                            * the target mailbox dest, frames
                                            * are DEPOSIT/DEPOSIT_ACK verbatim,
-                                           * no telemetry header, no HELLO) */
+                                           * no HELLO) */
 #define RLPG_LOCAL_DEPOSIT_MAX      (66 * 1024)
 #define RLPG_MAX_SESSIONS           6     /* concurrent inbound link sessions */
 #define RLPG_MAX_RELAYS             2     /* concurrent outbound relay links */
@@ -274,8 +274,7 @@ struct session_t {
     int         handle = -1;
     int         slot = -1;
     bool        local = false;        /* same-instance deposit (ITS, no RNS
-                                       * link): frames carry no telemetry
-                                       * header and no HELLO was sent */
+                                       * link): no HELLO was sent */
     bool        authed = false;       /* owner session */
     uint8_t     nonce[16] = {};
     uint8_t     link_id[16] = {};
@@ -512,18 +511,6 @@ static void heldReconcile(int n)
 }
 
 /* ─────────────── session helpers ─────────────── */
-
-/* rnsd prepends an inbound-telemetry header to every link packet it
- * forwards — hops(1) | rssi(2) | snr(2) | first_hop(16) | iface_len(1) |
- * iface[] — the RLPG frame starts after it. Returns the header length,
- * 0 = malformed (drop the packet). */
-static size_t rxMetaLen(const uint8_t* p, size_t n)
-{
-    if (n < 22) return 0;
-    size_t ilen = p[21];
-    if (ilen > 24 || 22 + ilen >= n) return 0;
-    return 22 + ilen;
-}
 
 static session_t* sessionByHandle(int handle)
 {
@@ -1050,9 +1037,8 @@ static void onRelayRecv(int handle, size_t)
     if (r->direct) return;   /* final-hop link — the recipient speaks no RLPG;
                               * settle comes from proof / resource aux (drained
                               * above so the buffer can't wedge) */
-    size_t h = rxMetaLen(buf, got);
     RlpgFrame fr;
-    if (!h || !rlpgFrameParse(buf + h, got - h, fr)) return;
+    if (!rlpgFrameParse(buf, got, fr)) return;
 
     if (fr.type == RLPG_FR_HELLO && !r->hello_seen) {
         r->hello_seen = true;
@@ -1285,16 +1271,8 @@ static void onLinkRecv(int handle, size_t)
     PSRAM_BSS static uint8_t buf[RLPG_LOCAL_DEPOSIT_MAX + 128];
     size_t n = itsRecv(handle, buf, sizeof(buf), 0);
     if (!n) return;
-    size_t h = 0;
-    if (!ss->local) {
-        h = rxMetaLen(buf, n);
-        if (!h) {
-            verb("slot %d: unparseable frame (%zu B) on %s", ss->slot, n, ss->tag.c_str());
-            return;
-        }
-    }
     RlpgFrame fr;
-    if (!rlpgFrameParse(buf + h, n - h, fr)) {
+    if (!rlpgFrameParse(buf, n, fr)) {
         verb("slot %d: unparseable frame (%zu B) on %s", ss->slot, n, ss->tag.c_str());
         return;
     }
@@ -1304,7 +1282,7 @@ static void onLinkRecv(int handle, size_t)
 /* Same-instance deposit connect: payload = the target mailbox dest (16 B).
  * The session skips HELLO (no cert dance — the sender is on this device
  * and the deposit gate in handleDeposit still refuses an uncertified
- * mailbox) and its frames are verbatim, no telemetry header. Deposits are
+ * mailbox). Deposits are
  * anonymous (the mailbox sends no receipt). */
 static int onLocalDepositConnect(int handle, const void* data, size_t len)
 {
